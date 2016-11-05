@@ -30,7 +30,7 @@ else:
 
 path = "./"
 
-print "instantiating model"
+print "Instantiating model..."
 model = VAE(continuous, hu_encoder, hu_decoder, n_latent, x_train)
 
 
@@ -45,7 +45,7 @@ if os.path.isfile(path + "params.pkl"):
     epoch = len(LB_list)
 
 if __name__ == "__main__":
-    print "iterating"
+    print "Iterating..."
     while epoch < n_epochs:
         epoch += 1
         start = time.time()

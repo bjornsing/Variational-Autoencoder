@@ -10,7 +10,7 @@ from collections import OrderedDict
 epsilon = 1e-8
 
 def relu(x):
-    return T.switch(x<0, 0, x)
+    return T.switch(x < 0, 0, x)
 
 
 class VAE:
@@ -33,10 +33,13 @@ class VAE:
 
         sigma_init = 0.01
 
-        create_weight = lambda dim_input, dim_output: self.prng.normal(0, sigma_init, (dim_input, dim_output)).astype(theano.config.floatX)
-        create_bias = lambda dim_output: np.zeros(dim_output).astype(theano.config.floatX)
+        def create_weight(n_in, n_out):
+            return self.prng.normal(0, sigma_init, (n_in, n_out)).astype(theano.config.floatX)
 
-        # encoder
+        def create_bias(n):
+            return np.zeros(n).astype(theano.config.floatX)
+
+        # Bottom-up / Encoder
         W_xh = theano.shared(create_weight(self.features, hu_encoder), name='W_xh')
         b_xh = theano.shared(create_bias(hu_encoder), name='b_xh')
 
@@ -46,7 +49,7 @@ class VAE:
         W_hsigma = theano.shared(create_weight(hu_encoder, n_latent), name='W_hsigma')
         b_hsigma = theano.shared(create_bias(n_latent), name='b_hsigma')
 
-        # decoder
+        # Top-down / Decoder
         W_zh = theano.shared(create_weight(n_latent, hu_decoder), name='W_zh')
         b_zh = theano.shared(create_bias(hu_decoder), name='b_zh')
 
@@ -79,8 +82,6 @@ class VAE:
         x_train = theano.shared(x_train.astype(theano.config.floatX), name="x_train")
 
         self.update, self.likelihood, self.encode, self.decode = self.create_gradientfunctions(x_train)
-
-
 
     def encoder(self, x):
         h_encoder = relu(T.dot(x, self.params['W_xh']) + self.params['b_xh'].dimshuffle('x', 0))
@@ -119,7 +120,6 @@ class VAE:
             logpxz = - T.nnet.binary_crossentropy(reconstructed_x, x).sum(axis=1)
 
         return reconstructed_x, logpxz
-
 
     def create_gradientfunctions(self, x_train):
         x = T.matrix("x")
