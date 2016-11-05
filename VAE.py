@@ -46,15 +46,15 @@ class VAE:
         W_hmu = theano.shared(create_weight(hu_encoder, n_latent), name='W_hmu')
         b_hmu = theano.shared(create_bias(n_latent), name='b_hmu')
 
-        W_hsigma = theano.shared(create_weight(hu_encoder, n_latent), name='W_hsigma')
-        b_hsigma = theano.shared(create_bias(n_latent), name='b_hsigma')
+        W_hlogvar = theano.shared(create_weight(hu_encoder, n_latent), name='W_hlogvar')
+        b_hlogvar = theano.shared(create_bias(n_latent), name='b_hlogvar')
 
         # Top-down / Decoder
         W_zh = theano.shared(create_weight(n_latent, hu_decoder), name='W_zh')
         b_zh = theano.shared(create_bias(hu_decoder), name='b_zh')
 
         self.params = OrderedDict([("W_xh", W_xh), ("b_xh", b_xh), ("W_hmu", W_hmu), ("b_hmu", b_hmu),
-                                   ("W_hsigma", W_hsigma), ("b_hsigma", b_hsigma), ("W_zh", W_zh),
+                                   ("W_hlogvar", W_hlogvar), ("b_hlogvar", b_hlogvar), ("W_zh", W_zh),
                                    ("b_zh", b_zh)])
 
         if self.continuous:
@@ -87,11 +87,11 @@ class VAE:
         h_encoder = relu(T.dot(x, self.params['W_xh']) + self.params['b_xh'].dimshuffle('x', 0))
 
         mu = T.dot(h_encoder, self.params['W_hmu']) + self.params['b_hmu'].dimshuffle('x', 0)
-        log_sigma = T.dot(h_encoder, self.params['W_hsigma']) + self.params['b_hsigma'].dimshuffle('x', 0)
+        logvar = T.dot(h_encoder, self.params['W_hlogvar']) + self.params['b_hlogvar'].dimshuffle('x', 0)
 
-        return mu, log_sigma
+        return mu, logvar
 
-    def sampler(self, mu, log_sigma):
+    def sampler(self, mu, logvar):
         seed = 42
 
         if "gpu" in theano.config.device:
@@ -102,7 +102,7 @@ class VAE:
         eps = srng.normal(mu.shape)
 
         # Reparametrize
-        z = mu + T.exp(0.5 * log_sigma) * eps
+        z = mu + T.exp(0.5 * logvar) * eps
 
         return z
 
@@ -128,12 +128,12 @@ class VAE:
 
         batch_size = x.shape[0]
 
-        mu, log_sigma = self.encoder(x)
-        z = self.sampler(mu, log_sigma)
+        mu, logvar = self.encoder(x)
+        z = self.sampler(mu, logvar)
         reconstructed_x, logpxz = self.decoder(x,z)
 
         # Expectation of (logpz - logqz_x) over logqz_x is equal to KLD (see appendix B):
-        KLD = 0.5 * T.sum(1 + log_sigma - mu**2 - T.exp(log_sigma), axis=1)
+        KLD = 0.5 * T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=1)
 
         # Average over batch dimension
         logpx = T.mean(logpxz + KLD)
